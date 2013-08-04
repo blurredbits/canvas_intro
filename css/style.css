@@ -1,0 +1,13 @@
+
+header {
+  background-color: LightGray;
+  border-radius: 2px;
+}
+
+h1 {
+  font-family: 'Roboto Condesed', sans-serif;
+}
+
+#intro {
+  border: 1px solid gray;
+}
