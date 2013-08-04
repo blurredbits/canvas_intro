@@ -128,7 +128,7 @@ $(document).ready(function() {
 
   };
 
-  var shielf = function(x, y) {
+  var shield = function(x, y) {
 
   };
 
@@ -137,7 +137,148 @@ $(document).ready(function() {
   };
 
   var game = function() {
+    var time,
+        aliens,
+        gameState = 'titleScreen',
+        aliensStartY,
+        lives,
+        score = 0,
+        highScore = 0,
+        extraLifeScore = 0,
+        saucerTimeout = 0,
+        newTankTimeout,
+        newWaveTimeout,
+        gameOverFlag = false,
+        startText =
+          '<div class="message">' +
+          '<p>ORBIT ASSAULT</p>' +
+          '<p>Press FIRE to Start</p>' +
+          '<p>Z = LEFT</p>' +
+          '<p>X = RIGHT</p>' +
+          '<p>M = FIRE</p>' +
+          '<p>EXTRA TANK EVERY 5000 POINTS</p>' +
+          '</div>',
+        initShields = function() {
+          for (var x = 0; x < 4; x++) {
+            shield((SCREEN_WIDTH/2) - 192 + 12 + (x * 96), SHIELD_Y);
+          }
+        },
+        updateScores = function() {
+          if (score - extraLifeScore >= 5000) {
+            extraLifeScore += 5000;
+            lives++;
+          }
+          if(!$('#score').length) {
+            $("#draw-target").append('<div id="score"></div>' + '<div id="lives"></div><div id="highScore"></div>');
+          }
+          if (score > highScore) {
+            highScore = score;
+          }
+          $('#score').text('SCORE: ' + score);
+          $('#highScore').text('HIGH: ' + highScore);
+          $('#lives').text('LIVES: ' + lives);
+        },
 
-  }();
+        newSaucer = function() {
+          clearTimeout(saucerTimeout);
+          saucerTimeout = setTimeout(function() {
+            saucer(gameCallback);
+            newSaucer();
+          }, (Math.random() * 5000) + 15000);
+        },
+
+        init = function() {
+          $("#draw-target").children().remove();
+          SYS_process = processor();
+          SYS_collisionManager = collisionManager();
+          aliens = aliensManager(gameCallback, aliensStartY);
+          setTimeout(function() {
+            tank(gameCallback);
+          }, 2000);
+          initShields();
+          newSaucer();
+          updateScores();
+        },
+        gameOver = function() {
+          gameOverFlag = true;
+          clearTimeout(newTankTimeout);
+          clearTimeout(newWaveTimeout);
+          clearTimeout(saucerTimeout);
+          setTimeout(function() {
+            $("#draw-target").children().remove();
+            $("#draw-target").append('<div class="message">' + '<p>*** GAME OVER ***</p></div>' + startText);
+            gameState = 'titleScreen';
+          }, 2000);
+        },
+
+        gameCallback = function(messageObj) {
+          if (gameOverFlag) {
+            return;
+          }
+          switch(messageObj.message) {
+            case 'alienKilled':
+              score += messageObj.score;
+              updateScores();
+              break;
+            case 'saucerHit':
+              var pts = Math.floor((Math.random() * 3) + 1);
+              score += pts * 50;
+              updateScores();
+              animEffect(messageObj.x, messageObj.y, [pts + 20], 500, null);
+              break;
+            case 'playerKilled':
+              aliens.pauseAliens(2500);
+              lives--;
+              updateScores();
+              if (!lives) {
+                gameOver();
+              } else {
+                newTankTimeout = setTimeout(function() {
+                  tank(gameCallback);
+                }, 2000);
+              }
+              break;
+            case 'allAliensKilled':
+              if (aliensStartY < 160) {
+                aliensStartY += 32;
+              }
+              newWaveTimeout = setTimeout(function() {
+                init();
+              }, 2000);
+              break;
+            case 'aliensAtBottom':
+              gameOver();
+              break;
+          }
+        },
+
+        gameLoop = function() {
+          switch(gameState) {
+            case 'playing':
+              SYS_timeInfo = time.getInfo();
+              SYS_process.process();
+              SYS_collisionManager.checkCollisions();
+              break;
+
+            case 'titleScreen':
+              if (keys.fire) {
+                gameOverFlag = false;
+                time = timeInfo(60);
+                keys.fire = 0;
+                lives = 3;
+                score = 0;
+                extraLifeScore = 0;
+                aliensStartY = 64;
+                gameState = 'playing';
+                init();
+              }
+          }
+          setTimeout(gameLoop, 15);
+        }();
+
+        $("#draw-target").append(startText);
+        gameLoop();
+
+    }();
 
 });
